@@ -97,7 +97,7 @@ def insert_student_result(roll_number, marks):
 
         # Commit the transaction
         connection.commit()
-       st.write(f"Data inserted for Roll Number {roll_number}")
+        st.write(f"Data inserted for Roll Number {roll_number}")
 
     except mysql.connector.Error as err:
         st.write(f"Error: {err}")
