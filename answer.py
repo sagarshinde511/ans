@@ -88,7 +88,7 @@ def insert_student_result(roll_number, marks):
         VALUES (%s, %s, %s)
         """
         subject = "Cloud Computing"  # Set default subject
-
+        marks = int(marks)
         # Prepare the data to be inserted
         data = (roll_number, "Cloud Computing", marks)
 
