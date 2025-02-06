@@ -71,8 +71,8 @@ def assign_marks(similarity, total_marks):
 st.title("📄 Automated Answer Sheet Grading")
 st.sidebar.header("📂 Upload Files")
 
-correct_answers_file = st.sidebar.file_uploader("📌 Upload Correct Answers (Excel)", type=["xlsx"])
-student_pdfs = st.sidebar.file_uploader("📌 Upload Student Answer Sheets (PDF)", type=["pdf"], accept_multiple_files=True)
+correct_answers_file = st.file_uploader("📌 Upload Correct Answers (Excel)", type=["xlsx"])
+student_pdfs = st.file_uploader("📌 Upload Student Answer Sheets (PDF)", type=["pdf"], accept_multiple_files=True)
 
 if correct_answers_file and student_pdfs:
     try:
