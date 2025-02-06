@@ -157,7 +157,7 @@ def read_student_results():
             cursor.close()
         if connection:
             connection.close()
-# Function to process a single student's PDF and evaluate answers
+
 def process_student_pdf(correct_answers_file, student_pdf):
     try:
         # Load correct answers
