@@ -67,7 +67,6 @@ def assign_marks(similarity, total_marks):
         return total_marks * 0.50
     else:
         return 0
-
 def insert_student_result(roll_number, marks):
     cursor = None  # Initialize cursor to None
     try:
@@ -107,6 +106,7 @@ def insert_student_result(roll_number, marks):
             cursor.close()
         if connection:
             connection.close()
+
 # Function to process a single student's PDF and evaluate answers
 def process_student_pdf(correct_answers_file, student_pdf):
     try:
