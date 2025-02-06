@@ -41,12 +41,12 @@ def extract_questions_answers(pdf_text):
 
 # Function to extract question number
 def extract_question_number(question):
-    match = re.search(r'Q\s?\d+', question)
+    match = re.search(r'Q\s?(\d+)', question)
     if match:
-        q_number = match.group(0).replace(" ", "")
+        q_number = match.group(1)
         question_text = re.sub(r'Q\s?\d+', '', question).strip()
         return q_number, question_text
-    return None, question
+    return "Unknown", question
 
 # Function to clean answers
 def clean_answer_column(answer):
@@ -78,6 +78,11 @@ if correct_answers_file and student_pdfs:
     try:
         # Load correct answers
         correct_answers = pd.read_excel(correct_answers_file)
+        
+        # Ensure 'No' column is present in correct answers file
+        if 'No' not in correct_answers.columns:
+            st.error("❌ The uploaded correct answers file is missing a 'No' column.")
+        
         all_results = []
 
         for student_pdf in student_pdfs:
@@ -86,33 +91,40 @@ if correct_answers_file and student_pdfs:
             roll_number = extract_roll_number(pdf_text)
             
             student_answers = pd.DataFrame({'Question': questions, 'Answers': answers})
+            
+            # Extract question number and question text
             student_answers[['No', 'Question']] = student_answers['Question'].apply(lambda x: pd.Series(extract_question_number(x)))
             student_answers['Answers'] = student_answers['Answers'].apply(clean_answer_column)
+            
+            # Debug: Check the columns before merging
+            st.write("Student Answers DataFrame:", student_answers.head())
+            st.write("Correct Answers DataFrame:", correct_answers.head())
 
-            if 'No' not in correct_answers.columns:
-                st.error("❌ The uploaded correct answers file is missing a 'No' column.")
-            else:
-                df_merged = pd.merge(student_answers, correct_answers, on='No', suffixes=('_student', '_correct'), how="inner")
-                
-                if "Answers_student" not in df_merged.columns:
-                    df_merged.rename(columns={"Answers": "Answers_student"}, inplace=True)
-                
-                df_merged['Similarity (%)'] = df_merged.apply(
-                    lambda row: calculate_similarity(row.get('Answers_student', ''), row.get('Answers_correct', '')),
-                    axis=1
-                )
-                df_merged['Assigned Marks'] = df_merged.apply(
-                    lambda row: assign_marks(row['Similarity (%)'], row['Marks']),
-                    axis=1
-                )
+            # Merge student answers with correct answers
+            df_merged = pd.merge(student_answers, correct_answers, on='No', suffixes=('_student', '_correct'), how="inner")
+            
+            if "Answers_student" not in df_merged.columns:
+                df_merged.rename(columns={"Answers": "Answers_student"}, inplace=True)
+            
+            # Calculate similarity and assign marks
+            df_merged['Similarity (%)'] = df_merged.apply(
+                lambda row: calculate_similarity(row.get('Answers_student', ''), row.get('Answers_correct', '')),
+                axis=1
+            )
+            df_merged['Assigned Marks'] = df_merged.apply(
+                lambda row: assign_marks(row['Similarity (%)'], row['Marks']),
+                axis=1
+            )
 
-                total_marks_obtained = df_merged['Assigned Marks'].sum()
-                total_possible_marks = correct_answers['Marks'].sum()
-                df_merged['Roll Number'] = roll_number
-                df_merged['Total Marks'] = total_marks_obtained
-                
-                all_results.append(df_merged[['Roll Number', 'No', 'Question', 'Answers_student', 'Similarity (%)', 'Assigned Marks']])
+            # Calculate total marks
+            total_marks_obtained = df_merged['Assigned Marks'].sum()
+            total_possible_marks = correct_answers['Marks'].sum()
+            df_merged['Roll Number'] = roll_number
+            df_merged['Total Marks'] = total_marks_obtained
+            
+            all_results.append(df_merged[['Roll Number', 'No', 'Question', 'Answers_student', 'Similarity (%)', 'Assigned Marks']])
 
+        # Combine all student results
         final_results = pd.concat(all_results, ignore_index=True)
         
         st.subheader("📌 Consolidated Results")
