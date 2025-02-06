@@ -72,59 +72,55 @@ st.title("📄 Automated Answer Sheet Grading")
 st.sidebar.header("📂 Upload Files")
 
 correct_answers_file = st.sidebar.file_uploader("📌 Upload Correct Answers (Excel)", type=["xlsx"])
-student_pdf = st.sidebar.file_uploader("📌 Upload Student Answer Sheet (PDF)", type=["pdf"])
+student_pdfs = st.sidebar.file_uploader("📌 Upload Student Answer Sheets (PDF)", type=["pdf"], accept_multiple_files=True)
 
-if correct_answers_file and student_pdf:
+if correct_answers_file and student_pdfs:
     try:
         # Load correct answers
         correct_answers = pd.read_excel(correct_answers_file)
+        all_results = []
+
+        for student_pdf in student_pdfs:
+            pdf_text = extract_text_from_pdf(student_pdf)
+            questions, answers = extract_questions_answers(pdf_text)
+            roll_number = extract_roll_number(pdf_text)
+            
+            student_answers = pd.DataFrame({'Question': questions, 'Answers': answers})
+            student_answers[['No', 'Question']] = student_answers['Question'].apply(lambda x: pd.Series(extract_question_number(x)))
+            student_answers['Answers'] = student_answers['Answers'].apply(clean_answer_column)
+
+            if 'No' not in correct_answers.columns:
+                st.error("❌ The uploaded correct answers file is missing a 'No' column.")
+            else:
+                df_merged = pd.merge(student_answers, correct_answers, on='No', suffixes=('_student', '_correct'), how="inner")
+                
+                if "Answers_student" not in df_merged.columns:
+                    df_merged.rename(columns={"Answers": "Answers_student"}, inplace=True)
+                
+                df_merged['Similarity (%)'] = df_merged.apply(
+                    lambda row: calculate_similarity(row.get('Answers_student', ''), row.get('Answers_correct', '')),
+                    axis=1
+                )
+                df_merged['Assigned Marks'] = df_merged.apply(
+                    lambda row: assign_marks(row['Similarity (%)'], row['Marks']),
+                    axis=1
+                )
+
+                total_marks_obtained = df_merged['Assigned Marks'].sum()
+                total_possible_marks = correct_answers['Marks'].sum()
+                df_merged['Roll Number'] = roll_number
+                df_merged['Total Marks'] = total_marks_obtained
+                
+                all_results.append(df_merged[['Roll Number', 'No', 'Question', 'Answers_student', 'Similarity (%)', 'Assigned Marks']])
+
+        final_results = pd.concat(all_results, ignore_index=True)
         
-        # Process student answers
-        pdf_text = extract_text_from_pdf(student_pdf)
-        questions, answers = extract_questions_answers(pdf_text)
-        roll_number = extract_roll_number(pdf_text)
-        
-        student_answers = pd.DataFrame({'Question': questions, 'Answers': answers})
-        student_answers[['No', 'Question']] = student_answers['Question'].apply(lambda x: pd.Series(extract_question_number(x)))
-        student_answers['Answers'] = student_answers['Answers'].apply(clean_answer_column)
+        st.subheader("📌 Consolidated Results")
+        st.dataframe(final_results)
 
-        # Ensure 'No' column exists in correct answers
-        if 'No' not in correct_answers.columns:
-            st.error("❌ The uploaded correct answers file is missing a 'No' column.")
-        else:
-            # Merge and compute similarity
-            df_merged = pd.merge(student_answers, correct_answers, on='No', suffixes=('_student', '_correct'), how="inner")
-
-            # Handle missing columns gracefully
-            if "Answers_student" not in df_merged.columns:
-                df_merged.rename(columns={"Answers": "Answers_student"}, inplace=True)
-
-            df_merged['Similarity (%)'] = df_merged.apply(
-                lambda row: calculate_similarity(row.get('Answers_student', ''), row.get('Answers_correct', '')),
-                axis=1
-            )
-            df_merged['Assigned Marks'] = df_merged.apply(
-                lambda row: assign_marks(row['Similarity (%)'], row['Marks']),
-                axis=1
-            )
-
-            # Compute total marks
-            total_marks_obtained = df_merged['Assigned Marks'].sum()
-            total_possible_marks = correct_answers['Marks'].sum()
-
-            # Display results
-            st.subheader(f"📌 Roll Number: {roll_number}")
-            st.write(f"### ✅ Total Marks: {total_marks_obtained:.2f} / {total_possible_marks:.2f}")
-
-            # Ensure only available columns are displayed
-            columns_to_display = ['No', 'Question', 'Answers_student', 'Similarity (%)', 'Assigned Marks']
-            available_columns = [col for col in columns_to_display if col in df_merged.columns]
-            st.dataframe(df_merged[available_columns])
-
-            # Save and download results
-            output_file = "graded_answers.csv"
-            df_merged.to_csv(output_file, index=False)
-            st.download_button("⬇️ Download Results", data=open(output_file, "rb"), file_name="graded_answers.csv", mime="text/csv")
+        output_file = "graded_answers_all.csv"
+        final_results.to_csv(output_file, index=False)
+        st.download_button("⬇️ Download Consolidated Results", data=open(output_file, "rb"), file_name="graded_answers_all.csv", mime="text/csv")
     
     except Exception as e:
         st.error(f"🚨 Error processing files: {e}")
