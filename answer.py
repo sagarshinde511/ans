@@ -50,11 +50,11 @@ def extract_question_number(question):
 
 # Function to clean answers
 def clean_answer_column(answer):
-    return answer.replace('Answer: ', '').strip()
+    return str(answer).replace('Answer: ', '').strip() if answer else ""
 
 # Function to calculate similarity
 def calculate_similarity(answer1, answer2):
-    return fuzz.ratio(str(answer1), str(answer2))
+    return fuzz.ratio(str(answer1), str(answer2)) if answer1 and answer2 else 0
 
 # Function to assign marks
 def assign_marks(similarity, total_marks):
@@ -68,39 +68,63 @@ def assign_marks(similarity, total_marks):
         return 0
 
 # Streamlit UI
-st.title("Automated Answer Sheet Grading")
-st.sidebar.header("Upload Files")
+st.title("📄 Automated Answer Sheet Grading")
+st.sidebar.header("📂 Upload Files")
 
-correct_answers_file = st.sidebar.file_uploader("Upload Correct Answers (Excel)", type=["xlsx"])
-student_pdf = st.sidebar.file_uploader("Upload Student Answer Sheet (PDF)", type=["pdf"])
+correct_answers_file = st.sidebar.file_uploader("📌 Upload Correct Answers (Excel)", type=["xlsx"])
+student_pdf = st.sidebar.file_uploader("📌 Upload Student Answer Sheet (PDF)", type=["pdf"])
 
 if correct_answers_file and student_pdf:
-    # Load correct answers
-    correct_answers = pd.read_excel(correct_answers_file)
+    try:
+        # Load correct answers
+        correct_answers = pd.read_excel(correct_answers_file)
+        
+        # Process student answers
+        pdf_text = extract_text_from_pdf(student_pdf)
+        questions, answers = extract_questions_answers(pdf_text)
+        roll_number = extract_roll_number(pdf_text)
+        
+        student_answers = pd.DataFrame({'Question': questions, 'Answers': answers})
+        student_answers[['No', 'Question']] = student_answers['Question'].apply(lambda x: pd.Series(extract_question_number(x)))
+        student_answers['Answers'] = student_answers['Answers'].apply(clean_answer_column)
+
+        # Ensure 'No' column exists in correct answers
+        if 'No' not in correct_answers.columns:
+            st.error("❌ The uploaded correct answers file is missing a 'No' column.")
+        else:
+            # Merge and compute similarity
+            df_merged = pd.merge(student_answers, correct_answers, on='No', suffixes=('_student', '_correct'), how="inner")
+
+            # Handle missing columns gracefully
+            if "Answers_student" not in df_merged.columns:
+                df_merged.rename(columns={"Answers": "Answers_student"}, inplace=True)
+
+            df_merged['Similarity (%)'] = df_merged.apply(
+                lambda row: calculate_similarity(row.get('Answers_student', ''), row.get('Answers_correct', '')),
+                axis=1
+            )
+            df_merged['Assigned Marks'] = df_merged.apply(
+                lambda row: assign_marks(row['Similarity (%)'], row['Marks']),
+                axis=1
+            )
+
+            # Compute total marks
+            total_marks_obtained = df_merged['Assigned Marks'].sum()
+            total_possible_marks = correct_answers['Marks'].sum()
+
+            # Display results
+            st.subheader(f"📌 Roll Number: {roll_number}")
+            st.write(f"### ✅ Total Marks: {total_marks_obtained:.2f} / {total_possible_marks:.2f}")
+
+            # Ensure only available columns are displayed
+            columns_to_display = ['No', 'Question', 'Answers_student', 'Similarity (%)', 'Assigned Marks']
+            available_columns = [col for col in columns_to_display if col in df_merged.columns]
+            st.dataframe(df_merged[available_columns])
+
+            # Save and download results
+            output_file = "graded_answers.csv"
+            df_merged.to_csv(output_file, index=False)
+            st.download_button("⬇️ Download Results", data=open(output_file, "rb"), file_name="graded_answers.csv", mime="text/csv")
     
-    # Process student answers
-    pdf_text = extract_text_from_pdf(student_pdf)
-    questions, answers = extract_questions_answers(pdf_text)
-    roll_number = extract_roll_number(pdf_text)
-    
-    student_answers = pd.DataFrame({'Question': questions, 'Answers': answers})
-    student_answers[['No', 'Question']] = student_answers['Question'].apply(lambda x: pd.Series(extract_question_number(x)))
-    student_answers['Answers'] = student_answers['Answers'].apply(clean_answer_column)
-    
-    # Merge and compute similarity
-    df_merged = pd.merge(student_answers, correct_answers, on='No', suffixes=('_student', '_correct'))
-    df_merged['Similarity (%)'] = df_merged.apply(lambda row: calculate_similarity(row['Answers_student'], row['Answers_correct']), axis=1)
-    df_merged['Assigned Marks'] = df_merged.apply(lambda row: assign_marks(row['Similarity (%)'], row['Marks']), axis=1)
-    
-    # Compute total marks
-    total_marks_obtained = df_merged['Assigned Marks'].sum()
-    total_possible_marks = correct_answers['Marks'].sum()
-    
-    # Display results
-    st.subheader(f"📌 Roll Number: {roll_number}")
-    st.write(f"### Total Marks: {total_marks_obtained:.2f} / {total_possible_marks:.2f}")
-    st.dataframe(df_merged[['No', 'Question', 'Answers_student', 'Similarity (%)', 'Assigned Marks']])
-    
-    # Download results
-    df_merged.to_csv("graded_answers.csv", index=False)
-    st.download_button("Download Results", "graded_answers.csv", "text/csv")
+    except Exception as e:
+        st.error(f"🚨 Error processing files: {e}")
