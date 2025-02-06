@@ -130,26 +130,30 @@ def read_student_results():
         # Fetch all records from the table
         records = cursor.fetchall()
 
-        # Debugging: print records to see its structure
-        print(f"Fetched records: {records}")
+        # Fetch column names dynamically
+        column_names = [i[0] for i in cursor.description]  # Get column names from DB
 
-        # Check if records are not empty
+        # Debugging: print records and column names
+        print(f"Fetched Records: {records}")
+        print(f"Column Names from DB: {column_names}")
+
+        # Check if records are empty
         if not records:
-            st.write("No records found in the database.")
-            return pd.DataFrame(columns=['RollNumber', 'Subject', 'Marks'])  # Return empty dataframe
+            st.warning("No records found in the database.")
+            return pd.DataFrame(columns=column_names)  # Return an empty dataframe
 
-        # Ensure the number of columns returned matches the expected structure
-        columns = ['RollNumber', 'Subject', 'Marks']
-        
-        # Create a Pandas DataFrame from the fetched records
-        df = pd.DataFrame(records, columns=columns)
+        # Create a Pandas DataFrame using dynamic column names
+        df = pd.DataFrame(records, columns=column_names)
 
-        # Return the DataFrame
         return df
 
     except mysql.connector.Error as err:
-        st.write(f"Error: {err}")
-        return pd.DataFrame(columns=['RollNumber', 'Subject', 'Marks'])  # Return empty dataframe in case of error
+        st.error(f"Database Error: {err}")
+        return pd.DataFrame()
+
+    except ValueError as ve:
+        st.error(f"Data Processing Error: {ve}")
+        return pd.DataFrame()
 
     finally:
         # Close the cursor and connection
