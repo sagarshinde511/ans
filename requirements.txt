@@ -1,3 +1,7 @@
 streamlit
 mysql-connector-python
 streamlit-option-menu
+pandas
+pymupdf
+rapidfuzz
+openpyxl
