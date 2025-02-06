@@ -108,7 +108,6 @@ def insert_student_result(roll_number, marks):
             cursor.close()
         if connection:
             connection.close()
-
 def read_student_results():
     try:
         # Connect to the database
@@ -131,23 +130,26 @@ def read_student_results():
         # Fetch all records from the table
         records = cursor.fetchall()
 
-        # Check the number of columns returned
-        print(f"Number of columns returned: {len(records[0]) if records else 0}")
+        # Debugging: print records to see its structure
+        print(f"Fetched records: {records}")
 
-        # Ensure the number of columns matches
-        columns = ['RollNumber', 'Subject', 'Marks']  # List the column names
-        if records:
-            # Create a Pandas DataFrame from the fetched records
-            df = pd.DataFrame(records, columns=columns)
-        else:
-            df = pd.DataFrame(columns=columns)  # Empty DataFrame with correct columns
+        # Check if records are not empty
+        if not records:
+            st.write("No records found in the database.")
+            return pd.DataFrame(columns=['RollNumber', 'Subject', 'Marks'])  # Return empty dataframe
+
+        # Ensure the number of columns returned matches the expected structure
+        columns = ['RollNumber', 'Subject', 'Marks']
+        
+        # Create a Pandas DataFrame from the fetched records
+        df = pd.DataFrame(records, columns=columns)
 
         # Return the DataFrame
         return df
 
     except mysql.connector.Error as err:
-        print(f"Error: {err}")
-        return None
+        st.write(f"Error: {err}")
+        return pd.DataFrame(columns=['RollNumber', 'Subject', 'Marks'])  # Return empty dataframe in case of error
 
     finally:
         # Close the cursor and connection
@@ -155,7 +157,6 @@ def read_student_results():
             cursor.close()
         if connection:
             connection.close()
-
 # Function to process a single student's PDF and evaluate answers
 def process_student_pdf(correct_answers_file, student_pdf):
     try:
