@@ -69,7 +69,7 @@ def assign_marks(similarity, total_marks):
 
 # Streamlit UI
 st.title("📄 Automated Answer Sheet Grading")
-st.sidebar.header("📂 Upload Files")
+st.header("📂 Upload Files")
 
 correct_answers_file = st.file_uploader("📌 Upload Correct Answers (Excel)", type=["xlsx"])
 student_pdfs = st.file_uploader("📌 Upload Student Answer Sheets (PDF)", type=["pdf"], accept_multiple_files=True)
