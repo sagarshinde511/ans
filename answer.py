@@ -69,7 +69,7 @@ def assign_marks(similarity, total_marks):
 
 # Streamlit UI
 st.title("📄 Automated Answer Sheet Grading")
-st.header("📂 Upload Files")
+st.sidebar.header("📂 Upload Files")
 
 correct_answers_file = st.file_uploader("📌 Upload Correct Answers (Excel)", type=["xlsx"])
 student_pdfs = st.file_uploader("📌 Upload Student Answer Sheets (PDF)", type=["pdf"], accept_multiple_files=True)
@@ -92,11 +92,18 @@ if correct_answers_file and student_pdfs:
             
             student_answers = pd.DataFrame({'Question': questions, 'Answers': answers})
             
+            # Debugging step to check if questions and answers are extracted properly
+            st.write("Extracted Questions and Answers:", student_answers.head())
+            
             # Extract question number and question text
             student_answers[['No', 'Question']] = student_answers['Question'].apply(lambda x: pd.Series(extract_question_number(x)))
+            
+            # Debugging step to check if the 'No' and 'Question' columns are created correctly
+            st.write("After Extracting Question Numbers:", student_answers.head())
+            
             student_answers['Answers'] = student_answers['Answers'].apply(clean_answer_column)
             
-            # Debug: Check the columns before merging
+            # Debugging step to check before merging
             st.write("Student Answers DataFrame:", student_answers.head())
             st.write("Correct Answers DataFrame:", correct_answers.head())
 
