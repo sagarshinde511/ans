@@ -4,7 +4,7 @@ import fitz  # PyMuPDF for reading PDFs
 import re
 from rapidfuzz import fuzz
 import os
-
+import mysql.connector
 # Function to extract text from PDF
 def extract_text_from_pdf(pdf_file):
     doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
