@@ -69,6 +69,7 @@ def assign_marks(similarity, total_marks):
         return 0
 
 def insert_student_result(roll_number, marks):
+    cursor = None  # Initialize cursor to None
     try:
         # Connect to the database
         connection = mysql.connector.connect(
@@ -101,10 +102,11 @@ def insert_student_result(roll_number, marks):
     except mysql.connector.Error as err:
         print(f"Error: {err}")
     finally:
-        # Close the cursor and connection
-        cursor.close()
-        connection.close()
-
+        # Close the cursor and connection only if cursor was created
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
 # Function to process a single student's PDF and evaluate answers
 def process_student_pdf(correct_answers_file, student_pdf):
     try:
