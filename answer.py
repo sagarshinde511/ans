@@ -68,6 +68,42 @@ def assign_marks(similarity, total_marks):
     else:
         return 0
 
+def insert_student_result(roll_number, marks):
+    try:
+        # Connect to the database
+        connection = mysql.connector.connect(
+            host="82.180.143.66",
+            user="u263681140_students",
+            password="testStudents@123",
+            database="u263681140_students"
+        )
+        
+        # Create a cursor object
+        cursor = connection.cursor()
+        
+        # SQL query to insert data
+        query = """
+        INSERT INTO StudentResult (RollNumber, Subject, Marks) 
+        VALUES (%s, %s, %s)
+        """
+        subject = "Cloud Computing"  # Set default subject
+
+        # Prepare the data to be inserted
+        data = (roll_number, "Cloud Computing", marks)
+
+        # Execute the query
+        cursor.execute(query, data)
+
+        # Commit the transaction
+        connection.commit()
+        print(f"Data inserted for Roll Number {roll_number}")
+
+    except mysql.connector.Error as err:
+        print(f"Error: {err}")
+    finally:
+        # Close the cursor and connection
+        cursor.close()
+        connection.close()
 
 # Function to process a single student's PDF and evaluate answers
 def process_student_pdf(correct_answers_file, student_pdf):
@@ -135,8 +171,8 @@ def main():
                     "Total Possible Marks": total_possible_marks,
                     "Details": df_merged
                 })
-
-        # Display results for all students
+                insert_student_result(roll_number, total_marks_obtained)
+        
         for result in all_results:
             st.subheader(f"📌 Roll Number: {result['Roll Number']}")
             st.write(f"### ✅ Total Marks: {result['Total Marks Obtained']:.2f} / {result['Total Possible Marks']:.2f}")
