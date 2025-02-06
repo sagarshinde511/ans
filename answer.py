@@ -5,6 +5,7 @@ import re
 from rapidfuzz import fuzz
 import os
 import mysql.connector
+
 # Function to extract text from PDF
 def extract_text_from_pdf(pdf_file):
     doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
@@ -67,8 +68,8 @@ def assign_marks(similarity, total_marks):
         return total_marks * 0.50
     else:
         return 0
+
 def insert_student_result(roll_number, marks):
-    
     cursor = None  # Initialize cursor to None
     try:
         # Connect to the database
@@ -103,6 +104,53 @@ def insert_student_result(roll_number, marks):
         st.write(f"Error: {err}")
     finally:
         # Close the cursor and connection only if cursor was created
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
+
+def read_student_results():
+    try:
+        # Connect to the database
+        connection = mysql.connector.connect(
+            host="82.180.143.66",
+            user="u263681140_students",
+            password="testStudents@123",
+            database="u263681140_students"
+        )
+        
+        # Create a cursor object
+        cursor = connection.cursor()
+
+        # SQL query to select all data from StudentResult table
+        query = "SELECT * FROM StudentResult"
+
+        # Execute the query
+        cursor.execute(query)
+
+        # Fetch all records from the table
+        records = cursor.fetchall()
+
+        # Check the number of columns returned
+        print(f"Number of columns returned: {len(records[0]) if records else 0}")
+
+        # Ensure the number of columns matches
+        columns = ['RollNumber', 'Subject', 'Marks']  # List the column names
+        if records:
+            # Create a Pandas DataFrame from the fetched records
+            df = pd.DataFrame(records, columns=columns)
+        else:
+            df = pd.DataFrame(columns=columns)  # Empty DataFrame with correct columns
+
+        # Return the DataFrame
+        return df
+
+    except mysql.connector.Error as err:
+        print(f"Error: {err}")
+        return None
+
+    finally:
+        # Close the cursor and connection
         if cursor:
             cursor.close()
         if connection:
@@ -156,35 +204,47 @@ def process_student_pdf(correct_answers_file, student_pdf):
 
 # Main Streamlit function to handle multiple PDFs
 def main():
-    # File upload inputs
-    correct_answers_file = st.file_uploader("Upload Correct Answers File", type="xlsx")
-    student_pdfs = st.file_uploader("Upload Student PDF Files", type="pdf", accept_multiple_files=True)
+    # Create tabs
+    tab1, tab2 = st.tabs(["Check Marks", "Check Result"])
 
-    if correct_answers_file and student_pdfs:
-        all_results = []
+    with tab1:
+        # File upload inputs
+        correct_answers_file = st.file_uploader("Upload Correct Answers File", type="xlsx")
+        student_pdfs = st.file_uploader("Upload Student PDF Files", type="pdf", accept_multiple_files=True)
 
-        # Process each student PDF
-        for student_pdf in student_pdfs:
-            result = process_student_pdf(correct_answers_file, student_pdf)
-            if result:
-                roll_number, df_merged, total_marks_obtained, total_possible_marks = result
-                all_results.append({
-                    "Roll Number": roll_number,
-                    "Total Marks Obtained": total_marks_obtained,
-                    "Total Possible Marks": total_possible_marks,
-                    "Details": df_merged
-                })
-                insert_student_result(roll_number, total_marks_obtained)
-        
-        for result in all_results:
-            st.subheader(f"📌 Roll Number: {result['Roll Number']}")
-            st.write(f"### ✅ Total Marks: {result['Total Marks Obtained']:.2f} / {result['Total Possible Marks']:.2f}")
-            st.dataframe(result["Details"])
+        if correct_answers_file and student_pdfs:
+            all_results = []
 
-            # Save and download individual results
-            output_file = f"{result['Roll Number']}_graded_answers.csv"
-            result["Details"].to_csv(output_file, index=False)
-            st.download_button(f"⬇️ Download Results for {result['Roll Number']}", data=open(output_file, "rb"), file_name=output_file, mime="text/csv")
+            # Process each student PDF
+            for student_pdf in student_pdfs:
+                result = process_student_pdf(correct_answers_file, student_pdf)
+                if result:
+                    roll_number, df_merged, total_marks_obtained, total_possible_marks = result
+                    all_results.append({
+                        "Roll Number": roll_number,
+                        "Total Marks Obtained": total_marks_obtained,
+                        "Total Possible Marks": total_possible_marks,
+                        "Details": df_merged
+                    })
+                    insert_student_result(roll_number, total_marks_obtained)
+
+            for result in all_results:
+                st.subheader(f"📌 Roll Number: {result['Roll Number']}")
+                st.write(f"### ✅ Total Marks: {result['Total Marks Obtained']:.2f} / {result['Total Possible Marks']:.2f}")
+                st.dataframe(result["Details"])
+
+                # Save and download individual results
+                output_file = f"{result['Roll Number']}_graded_answers.csv"
+                result["Details"].to_csv(output_file, index=False)
+                st.download_button(f"⬇️ Download Results for {result['Roll Number']}", data=open(output_file, "rb"), file_name=output_file, mime="text/csv")
+
+    with tab2:
+        # Display student results from database
+        df_results = read_student_results()
+        if df_results is not None:
+            st.dataframe(df_results)
+        else:
+            st.write("No student results found in the database.")
 
 if __name__ == "__main__":
     main()
