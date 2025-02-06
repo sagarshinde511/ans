@@ -68,6 +68,7 @@ def assign_marks(similarity, total_marks):
     else:
         return 0
 def insert_student_result(roll_number, marks):
+    
     cursor = None  # Initialize cursor to None
     try:
         # Connect to the database
@@ -96,10 +97,10 @@ def insert_student_result(roll_number, marks):
 
         # Commit the transaction
         connection.commit()
-        print(f"Data inserted for Roll Number {roll_number}")
+       st.write(f"Data inserted for Roll Number {roll_number}")
 
     except mysql.connector.Error as err:
-        print(f"Error: {err}")
+        st.write(f"Error: {err}")
     finally:
         # Close the cursor and connection only if cursor was created
         if cursor:
